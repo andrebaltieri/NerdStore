@@ -2,6 +2,7 @@
 using NerdStore.OrderContext.Domain.Resources;
 using NerdStore.OrderContext.Shared.Validation;
 using NerdStore.OrderContext.Shared.ValueObjects;
+using System.Text.RegularExpressions;
 
 namespace NerdStore.OrderContext.Domain.ValueObjects
 {
@@ -39,49 +40,25 @@ namespace NerdStore.OrderContext.Domain.ValueObjects
             }
         }
 
-        // Melhorar esta parte
         private bool Validate_PT_BR(string document)
+            => ValidaDigitoVerificador(Regex.Replace(document, @"[^\d]", ""), new[] { 11, 10, 9, 8, 7, 6, 5, 4, 3, 2 }, 11);
+        
+        //private static bool CNPJValido(string cnpj)
+        //    => ValidaDigitoVerificador(Regex.Replace(cnpj, @"[^\d]", ""), new[] { 6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2 }, 14);
+
+        private static bool ValidaDigitoVerificador(string code, int[] multipliers, int length)
         {
-            int[] mt1 = new int[9] { 10, 9, 8, 7, 6, 5, 4, 3, 2 };
-            int[] mt2 = new int[10] { 11, 10, 9, 8, 7, 6, 5, 4, 3, 2 };
-            string TempCPF;
-            string Digito;
-            int soma;
-            int resto;
-
-            document = document.Trim();
-            document = document.Replace(".", "").Replace("-", "");
-
-            if (document.Length != 11)
+            if (code.Length != length || code.Distinct().Count() == 1)
                 return false;
 
-            TempCPF = document.Substring(0, 9);
-            soma = 0;
-            for (int i = 0; i < 9; i++)
-                soma += int.Parse(TempCPF[i].ToString()) * mt1[i];
+            var digits = code.Select(char.GetNumericValue).Take(length - 2).ToList();
+            var rest = digits.Zip(multipliers.Skip(1), (digit, mult) => digit * mult).Sum() % 11;
 
-            resto = soma % 11;
-            if (resto < 2)
-                resto = 0;
-            else
-                resto = 11 - resto;
+            digits.Add(rest < 2 ? 0 : 11 - rest);
+            rest = digits.Zip(multipliers, (digit, mult) => digit * mult).Sum() % 11;
 
-            Digito = resto.ToString();
-            TempCPF = TempCPF + Digito;
-            soma = 0;
-
-            for (int i = 0; i < 10; i++)
-                soma += int.Parse(TempCPF[i].ToString()) * mt2[i];
-
-            resto = soma % 11;
-            if (resto < 2)
-                resto = 0;
-            else
-                resto = 11 - resto;
-
-            Digito = Digito + resto.ToString();
-
-            return document.EndsWith(Digito);
+            digits.Add(rest < 2 ? 0 : 11 - rest);
+            return code == string.Join("", digits.Select(i => i.ToString()));
         }
 
         private bool Validate_EN_US(string document)
